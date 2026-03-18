@@ -90,18 +90,25 @@ jobs:
               console.log('正在创建Worker路由...');
               console.log('路由模式:', customDomain + '/*');
               console.log('Worker名称:', workerName);
+              console.log('账户ID:', accountId);
               
-              const response = await axios.post(
-                'https://api.cloudflare.com/client/v4/accounts/' + accountId + '/workers/routes',
-                {
-                  pattern: customDomain + '/*',
-                  script: workerName
-                },
-                { headers }
-              );
-              console.log('Worker路由创建成功:', response.data);
+              const url = 'https://api.cloudflare.com/client/v4/accounts/' + accountId + '/workers/scripts/' + workerName + '/routes';
+              console.log('API URL:', url);
+              
+              const data = {
+                pattern: customDomain + '/*'
+              };
+              console.log('请求数据:', JSON.stringify(data));
+              
+              const response = await axios.post(url, data, { headers });
+              console.log('Worker路由创建成功:', JSON.stringify(response.data, null, 2));
             } catch (error) {
-              console.error('Worker路由创建失败:', error.response?.data || error.message);
+              console.error('Worker路由创建失败:');
+              console.error('错误消息:', error.message);
+              if (error.response) {
+                console.error('响应状态:', error.response.status);
+                console.error('响应数据:', JSON.stringify(error.response.data, null, 2));
+              }
             }
           }
           
@@ -109,35 +116,44 @@ jobs:
           async function createDNSRecord() {
             try {
               console.log('正在检查DNS记录...');
+              console.log('区域ID:', zoneId);
+              console.log('域名:', customDomain);
               
               // 检查是否已存在A记录
-              const checkResponse = await axios.get(
-                'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records?type=A&name=' + customDomain,
-                { headers }
-              );
+              const checkUrl = 'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records?type=A&name=' + customDomain;
+              console.log('检查URL:', checkUrl);
               
+              const checkResponse = await axios.get(checkUrl, { headers });
               console.log('DNS记录检查结果:', checkResponse.data.result.length > 0 ? '已存在' : '不存在');
+              console.log('检查响应:', JSON.stringify(checkResponse.data, null, 2));
               
               if (checkResponse.data.result.length === 0) {
                 console.log('正在创建DNS记录...');
                 // 创建A记录指向192.0.2.1（Cloudflare的占位IP）
-                const response = await axios.post(
-                  'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records',
-                  {
-                    type: 'A',
-                    name: customDomain,
-                    content: '192.0.2.1',
-                    ttl: 1,
-                    proxied: true
-                  },
-                  { headers }
-                );
-                console.log('DNS记录创建成功:', response.data);
+                const createUrl = 'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records';
+                console.log('创建URL:', createUrl);
+                
+                const data = {
+                  type: 'A',
+                  name: customDomain,
+                  content: '192.0.2.1',
+                  ttl: 1,
+                  proxied: true
+                };
+                console.log('请求数据:', JSON.stringify(data));
+                
+                const response = await axios.post(createUrl, data, { headers });
+                console.log('DNS记录创建成功:', JSON.stringify(response.data, null, 2));
               } else {
                 console.log('DNS记录已存在，跳过创建');
               }
             } catch (error) {
-              console.error('DNS记录操作失败:', error.response?.data || error.message);
+              console.error('DNS记录操作失败:');
+              console.error('错误消息:', error.message);
+              if (error.response) {
+                console.error('响应状态:', error.response.status);
+                console.error('响应数据:', JSON.stringify(error.response.data, null, 2));
+              }
             }
           }
           
