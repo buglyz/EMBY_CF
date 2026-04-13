@@ -246,15 +246,18 @@ install_caddy() {
 
   case "$PKG_MANAGER" in
     apt)
+      CADDY_KEYRING_PATH="/usr/share/keyrings/caddy-stable-archive-keyring.gpg"
+      CADDY_APT_SOURCE_FILE="/etc/apt/sources.list.d/caddy-stable.list"
+
+      rm -f "$CADDY_APT_SOURCE_FILE"
       install_packages ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https
-      install -d -m 0755 /etc/apt/keyrings
-      if [ ! -f /etc/apt/keyrings/caddy-stable-archive-keyring.gpg ]; then
+      install -d -m 0755 /usr/share/keyrings
+      if [ ! -f "$CADDY_KEYRING_PATH" ]; then
         curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-          | gpg --dearmor -o /etc/apt/keyrings/caddy-stable-archive-keyring.gpg
+          | gpg --dearmor -o "$CADDY_KEYRING_PATH"
       fi
       curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-        | sed 's#^deb #deb [signed-by=/etc/apt/keyrings/caddy-stable-archive-keyring.gpg] #' \
-        > /etc/apt/sources.list.d/caddy-stable.list
+        > "$CADDY_APT_SOURCE_FILE"
       APT_UPDATED=false
       install_packages caddy
       ;;
