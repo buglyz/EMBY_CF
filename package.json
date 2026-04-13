@@ -1,0 +1,15 @@
+{
+  "name": "emby-server-proxy",
+  "version": "3.0.0",
+  "private": true,
+  "description": "A self-hosted Emby reverse proxy that runs on a normal server behind nginx or Caddy.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node ./server.js",
+    "dev": "node --watch ./server.js",
+    "check": "node --check ./server.js"
+  }
+}

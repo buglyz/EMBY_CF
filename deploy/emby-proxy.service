@@ -1,0 +1,18 @@
+[Unit]
+Description=Emby Server Proxy
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/emby-server-proxy
+Environment=NODE_ENV=production
+EnvironmentFile=-/opt/emby-server-proxy/.env
+ExecStart=/usr/bin/node /opt/emby-server-proxy/server.js
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

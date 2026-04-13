@@ -1,103 +1,112 @@
-# Cloudflare Worker Emby 反向代理
+# Emby Server Proxy
 
-一个功能强大的 Cloudflare Worker 反向代理脚本，专为 Emby 服务器设计，支持 WebSocket 连接和 D1 数据库统计功能。
+这是一个可直接部署到普通 Linux 服务器的 Emby 反向代理项目，不再依赖 Cloudflare Workers，也不需要 Docker。服务本体使用 Node.js 运行，可放在 `nginx` 或 `Caddy` 后面提供 HTTPS、域名接入和反向代理。
 
-## 功能特性
+## 功能
 
-- ✅ 支持 Emby 服务器反向代理
-- ✅ 支持 WebSocket 连接
-- ✅ 智能重定向处理
-- ✅ D1 数据库统计功能
-- ✅ 集成前端使用指南
-- ✅ 支持自定义域名
-- ✅ 一键部署到 Cloudflare Workers
+- 保留原项目的路径格式：`https://你的域名/https://目标地址`
+- 支持 Emby 常见 HTTP 代理请求
+- 支持 WebSocket 升级转发
+- 支持重定向处理与直连白名单
+- 支持本地统计持久化，数据保存到服务器文件
+- 提供首页说明、`/stats` 统计接口和 `/health` 健康检查
 
-## 统计功能
+## 快速开始
 
-- **播放次数**：记录 `/Sessions/Playing` 接口调用
-- **获取链接次数**：记录 `/PlaybackInfo` 接口调用
-- **直接访问 `/stats` 端点查看最新的统计数据**
-- **数据存储**：按北京时间（UTC+8）按天存储
-- **数据展示**：在前端页面实时显示统计数据
+### 1. 安装 Node.js
+
+建议使用 Node.js 20 或更高版本。
+
+### 2. 一键安装并注册 systemd
+
+拉取仓库后，在 Linux 服务器中直接执行：
+
+```bash
+sudo sh deploy/install.sh
+```
+
+脚本会自动完成：
+
+- 检查并安装 Node.js 20+
+- 交互式询问域名、监听地址和端口
+- 生成 `.env`
+- 安装运行依赖
+- 注册 `systemd` 服务
+- 设置开机自启并立即启动
+
+默认服务名为 `emby-server-proxy`，默认监听 `0.0.0.0:3000`。
+
+交互安装时会依次提示你输入：
+
+- 对外访问域名
+- 服务监听地址
+- 服务监听端口
+
+如果你不想交互输入，也可以直接用环境变量覆盖，例如：
+
+```bash
+sudo APP_DOMAIN=media.example.com PORT=3100 RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
+```
+
+### 3. 手动启动服务
+
+```bash
+npm install
+npm run start
+```
+
+默认监听：
+
+- `HOST=0.0.0.0`
+- `PORT=3000`
+
+### 4. 访问示例
+
+```text
+https://你的服务域名/http://emby.example.com:8096
+https://你的服务域名/https://emby.example.com
+```
+
+如果路径里没有写协议，服务默认按 `https://` 处理。
+
+## 环境变量
+
+可选配置写在 `.env` 中，示例见 `.env.example`。
+
+- `HOST`：监听地址，默认 `0.0.0.0`
+- `PORT`：监听端口，默认 `3000`
+- `TIME_ZONE`：统计使用的时区，默认 `Asia/Shanghai`
+- `STATS_FILE`：统计文件保存路径，默认 `./data/stats.json`
+- `REQUEST_TIMEOUT_MS`：单次上游请求超时，默认 `300000`
+- `TRUST_PROXY_HEADERS`：是否信任 `X-Forwarded-*` 和 `CF-*` 头，默认 `true`
+- `MANUAL_REDIRECT_DOMAINS`：覆盖内置直连白名单，逗号分隔
+- `DOMAIN_PROXY_RULES`：当请求来自指定 Cloudflare 日本节点时改写上游域名，格式为 `后缀=主机[:端口]`
+- `JP_COLOS`：用于 `DOMAIN_PROXY_RULES` 的节点代码，默认 `NRT,KIX,FUK,OKA`
+
+## 目录结构
+
+```text
+.
+├─ server.js                 # Node 服务入口
+├─ src/
+│  ├─ config.js              # 运行配置
+│  ├─ frontend.js            # 首页 HTML
+│  └─ stats-store.js         # 本地统计持久化
+├─ deploy/
+│  ├─ nginx.conf             # nginx 配置示例
+│  ├─ Caddyfile              # Caddy 配置示例
+│  ├─ emby-proxy.service     # systemd 服务示例
+│  └─ install.sh             # 一键安装脚本
+├─ .env.example              # 环境变量示例
+└─ DEPLOY.md                 # 服务器部署说明
+```
 
 ## 部署方式
 
-### 方式一：Cloudflare 一键部署
+详细部署步骤见 [DEPLOY.md](./DEPLOY.md)。
 
-1. Fork 本仓库
-2. 配置 Cloudflare API 令牌
-3. 配置仓库 Secrets
-4. 触发 GitHub Actions 工作流
+## 说明
 
-详细步骤请查看 [DEPLOY.md](DEPLOY.md) 文件。
-
-### 方式二：手动部署
-
-1. 在 Cloudflare 控制台创建 Worker
-2. 上传 `worker.js` 代码
-3. 配置 D1 数据库（可选）
-4. 配置自定义域名（可选）
-
-详细步骤请查看 [DEPLOY.md](DEPLOY.md) 文件。
-
-## 使用方法
-
-访问你的 Worker 域名，将会看到使用指南页面。
-
-反向代理的使用格式：
-
-```
-https://你的worker域名/你的emby服务器地址:端口
-```
-
-例如：
-- `https://example.com/http://emby.com`
-- `https://example.comhttps://emby.com:8096`
-
-## 高级配置
-
-1. **重定向白名单**：在 `MANUAL_REDIRECT_DOMAINS` 数组中添加需要直连的域名
-2. **域名代理规则**：在 `DOMAIN_PROXY_RULES` 对象中配置被封锁域名的代理服务器
-3. **日本节点处理**：`JP_COLOS` 数组定义了日本的 Cloudflare 节点，来自这些节点的流量会应用特殊规则
-
-## 项目结构
-
-```
-├── worker.js          # Cloudflare Worker 主脚本
-├── DEPLOY.md          # 部署教程
-├── README.md          # 项目说明
-└── .github/workflows/ # GitHub Actions 工作流
-    └── main.yml       # 部署配置
-```
-
-## 故障排查
-
-- **无法访问 Worker**：检查 Worker 是否已部署成功，域名是否正确配置
-- **代理失败**：检查目标 Emby 服务器是否可访问，防火墙是否允许 Worker 的 IP 访问
-- **统计功能不工作**：检查 D1 数据库是否正确绑定，表结构是否创建
-- **WebSocket 连接失败**：确保目标 Emby 服务器支持 WebSocket，Worker 配置正确
-
-## 更新日志
-
-- **版本 2.5**：集成 D1 数据库统计功能，优化重定向处理，集成前端页面
-- **版本 2.0**：优化性能，修复重定向问题
-- **版本 1.0**：初始版本，基础反向代理功能
-
-## 声明
-
-本工具仅用于学习和研究目的，请勿用于非法用途。使用本工具产生的一切后果由使用者自行承担。
-
-## 交流反馈
-
-- **反馈群组**：[https://t.me/Dirige_Proxy](https://t.me/Dirige_Proxy)
-- 欢迎加入群组讨论使用问题和功能建议
-
-## 相关服务
-- **已部署好可直接食用地址**
-- **通用反代地址**：https://fd.dirige.de5.net    三网
-- **通用反代地址**：https://fd.255432.cc.cd      移动
-- **通用反代地址**：https://fd.255432.de5.net    联通
-
-## 许可证
-
-MIT License
+- 本项目仅用于学习和研究目的，请勿用于非法用途。
+- 统计数据默认保存为本地 JSON 文件，适合单机部署。
+- 如果你仍然在 Cloudflare 后面接入本服务，服务会尝试读取 `CF-RAY` 里的节点代码来兼容原有日本节点规则。

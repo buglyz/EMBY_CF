@@ -1,228 +1,256 @@
-# Cloudflare Worker Emby 反向代理部署教程
+# 服务器部署说明
 
-## 功能说明
+本文档说明如何把本项目部署到普通 Linux 服务器，不使用 Docker。
 
-这是一个带有反向代理功能的Cloudflare Worker脚本，具有以下特点：
+## 方案概览
 
-- 支持Emby服务器反向代理
-- 支持WebSocket连接
-- 支持重定向处理
-- 支持D1数据库统计功能（播放次数和获取链接次数）
-- 集成了前端页面，提供使用指南
+推荐结构：
 
-## 部署方式
+1. Node.js 服务默认监听 `0.0.0.0:3000`
+2. 使用 `systemd` 守护进程
+3. 使用 `nginx` 或 `Caddy` 对外提供 HTTPS
 
-#### 1. 准备工作
+## 一、准备环境
 
-1. 注册并登录 [Cloudflare](https://dash.cloudflare.com/) 账号
-2. 确保你有一个已验证的域名（可以在DNSHE中免费注册一个域名托管到Cloudflare）
-3. DNSHE地址：https://my.dnshe.com/index.php?m=domain_hub     请输入我的邀请码（ZPB06CED7F）谢谢
+### 1. 安装 Node.js
 
-### 方式一：GitHub 一键部署（推荐）
+建议 Node.js 20 及以上。
 
-1. **Fork 仓库**：
-   - 访问 [GitHub 仓库](https://github.com/Dirige/EMBY_CF)
-   - 点击 "Fork"按钮创建自己的副本
+### 2. 上传项目
 
-2. **获取 Cloudflare API 令牌**：
-   - 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)
-   - 点击右上角头像 → "My Profile"（配置文件）→ "API Tokens"（API令牌）
-   - 点击 "Create Token"（创建令牌）
-   - 选择模板 "Edit Cloudflare Workers"（编辑CloudflareWorkers）
-   - 设置权限后点击 "Create Token"（创建令牌）并保存令牌值
+把项目放到类似下面的目录：
 
-3. **配置仓库 Secrets**：
-   - 在你的 GitHub 仓库中，点击 "Settings"（设置）→ "Secrets and variables"（秘密和变量）→ "Actions"（操作）
-   - 点击 "New repository secret"（新建仓库密钥）
-   - 添加以下 Secrets：
-     - `CLOUDFLARE_API_TOKEN`：你的 Cloudflare API 令牌
-     - `CLOUDFLARE_ACCOUNT_ID`：你的 Cloudflare 账户 ID（在 Cloudflare "Workers & Pages" 页面右下角）
-     - `CLOUDFLARE_WORKER_NAME`：你想要创建的 Worker 名称（小写字母、数字和破折号）
-
-4. **触发部署**：
-   - 在仓库页面，点击 "Actions"（操作）标签
-   - 选择 "Main 部署到workflow"（运行工作流）
-   - 等待部署完成
-
-5. **配置 D1 数据库**：
-   - 部署完成后，登录 Cloudflare 控制台
-   - 按照下方 "方式二" 中的步骤 3 配置 D1 数据库
-
-### 方式二：手动部署
-
-
-
-#### 1. 创建Worker
-
-1. 登录 Cloudflare 控制台，左侧菜单点击 "Workers & Pages"
-2. 点击 "Create"（创建应用程序）按钮
-3. 选择 "Create Worker"（从hello world开始）
-4. 为你的Worker取一个名称（例如：emby-proxy），然后点击 "Deploy"（部署）
-5. 部署完成后，点击 "Edit code"（编辑代码）
-
-#### 2. 上传代码
-
-1. 在编辑器中删除默认的Worker代码
-2. 将 `worker.js` 文件中的所有内容复制粘贴到编辑框中
-3. 点击 "Save and deploy"（保存并部署）
-
-#### 3. 配置D1数据库（可选，用于统计功能）
-
-如果需要启用统计功能，需要配置D1数据库：
-
-1. 在Cloudflare控制台左侧菜单点击 "Storage & databases"（存储和数据库）
-2. 点击 "D1"（D1 数据库）
-3. 选择 "Create a database"（创建数据库），输入数据库名称
-5. 等待数据库创建完成，点击数据库名称进入详情页
-6. 换到 "Console"（控制台）标签页，执行以下SQL语句创建表：
-
-```sql
-CREATE TABLE IF NOT EXISTS auto_emby_daily_stats (
-    date TEXT PRIMARY KEY,
-    playing_count INTEGER DEFAULT 0,
-    playback_info_count INTEGER DEFAULT 0
-);
+```bash
+/opt/emby-server-proxy
 ```
 
-7. 回到Worker编辑页面，点击 "Settings"（设置）标签
-8. 在左侧菜单中点击 "Bindings"（绑定）
-9. 点击 "Add binding"（添加绑定）
-10. 选择绑定类型为 "D1 Database"（D1 数据库）
-11. 变量名称填写为 `DB`
-12. 选择你刚刚创建的数据库
-13. 点击 "Save"（保存）
+### 3. 配置环境变量
 
-#### 4. 配置自定义域名（可选）
+创建 `.env` 文件：
 
-1. 在Worker编辑页面，点击 "Triggers"（触发器）标签
-2. 在 "Custom Domains"（自定义域名）部分点击 "Add Custom Domain"（添加自定义域名）
-3. 输入你想使用的域名（例如：emby-proxy.example.com）
-4. 按照提示完成DNS配置
-
-## 使用方法
-
-### 基本用法
-
-访问你的Worker域名，将会看到使用指南页面。
-
-反向代理的使用格式：
-
-```
-https://你的worker域名/你的emby服务器地址:端口
+```bash
+HOST=0.0.0.0
+PORT=3000
+TIME_ZONE=Asia/Shanghai
+STATS_FILE=./data/stats.json
+REQUEST_TIMEOUT_MS=300000
+TRUST_PROXY_HEADERS=true
 ```
 
-例如：
-- `https://example.com/http://emby.com`
-- `https://example.com/https://emby.com:8096`
+## 二、一键安装
 
-### 高级配置
+仓库拉取到服务器后，直接在项目根目录执行：
 
-1. **重定向白名单**：在 `MANUAL_REDIRECT_DOMAINS` 数组中添加需要直连的域名
-2. **域名代理规则**：在 `DOMAIN_PROXY_RULES` 对象中配置被封锁域名的代理服务器
-3. **日本节点处理**：`JP_COLOS` 数组定义了日本的Cloudflare节点，来自这些节点的流量会应用特殊规则
-
-## 统计功能
-
-当启用D1数据库后，系统会自动统计：
-- 播放次数（`/Sessions/Playing` 接口调用）
-- 获取链接次数（`/PlaybackInfo` 接口调用）
-- 直接访问 /stats 端点查看最新的JSON数据
-- 数据存储：按北京时间（UTC+8）按天存储
-
-
-## GitHub 仓库结构
-
-```
-├── worker.js          # Cloudflare Worker 主脚本
-├── DEPLOY.md          # 部署教程
-├── README.md          # 项目说明
-└── .github/workflows/ # GitHub Actions 工作流
-    └── deploy.yml     # 部署配置
+```bash
+sudo sh deploy/install.sh
 ```
 
-## GitHub Actions 部署配置
+脚本会自动完成：
 
-在 `.github/workflows/deploy.yml` 文件中配置以下内容：
+1. 检查并安装 Node.js 20+
+2. 交互式询问域名、监听地址和端口
+3. 安装项目运行依赖
+4. 创建默认 `.env`
+5. 生成 `systemd` 服务
+6. 开机自启并立即启动服务
 
-```yaml
-name: Deploy to Cloudflare Workers
+默认行为：
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+- 服务名：`emby-server-proxy`
+- 监听地址：`0.0.0.0:3000`
+- 运行目录：当前仓库目录
+- 运行用户：执行 `sudo` 前的当前用户
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Publish to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: publish worker.js --name ${{ secrets.CLOUDFLARE_WORKER_NAME }}
+交互安装时会提示你输入：
+
+- 对外访问域名
+- 服务监听地址
+- 服务监听端口
+
+如果你想跳过交互，直接通过环境变量指定，也可以这样执行：
+
+```bash
+sudo APP_DOMAIN=media.example.com PORT=3100 SERVICE_NAME=my-emby-proxy RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
 ```
 
-## 注意事项
+支持的环境变量：
 
-1. 请遵守相关法律法规，不要使用本工具进行违法活动
-2. 合理使用资源，避免过度请求导致Cloudflare限制
-3. 如遇到问题，请检查Worker日志排查错误
-4. 定期备份D1数据库中的统计数据
-5. GitHub Actions 部署需要配置正确的 API 令牌和账户 ID
-6. Cloudflare 免费账户每天有10万次请求限制，如需更多请求请升级
+- `APP_NAME`
+- `SERVICE_NAME`
+- `APP_DIR`
+- `RUN_USER`
+- `RUN_GROUP`
+- `HOST`
+- `PORT`
+- `TIME_ZONE`
+- `REQUEST_TIMEOUT_MS`
+- `TRUST_PROXY_HEADERS`
+- `STATS_FILE`
+- `MANUAL_REDIRECT_DOMAINS`
+- `DOMAIN_PROXY_RULES`
+- `JP_COLOS`
+- `NODE_MAJOR`
 
-## 故障排查
+## 三、手动启动项目
 
-### 常见问题
+进入项目目录后执行：
 
-1. **无法访问Worker**：
-   - 检查Worker是否已部署成功
-   - 检查自定义域名的DNS配置是否正确
-   - 确保Worker路由规则已配置
+```bash
+npm install
+npm run start
+```
 
-2. **代理失败**：
-   - 检查目标Emby服务器是否可访问
-   - 确保防火墙允许Worker的IP访问
-   - 查看Worker日志了解具体错误信息
+如果终端输出类似下面内容，说明服务已经正常监听：
 
-3. **统计功能不工作**：
-   - 检查D1数据库是否正确绑定
-   - 确认数据库表结构是否创建成功
-   - 查看Worker日志检查数据库操作错误
+```text
+Emby server proxy listening on http://0.0.0.0:3000
+```
 
-4. **WebSocket连接失败**：
-   - 确保目标Emby服务器支持WebSocket
-   - 检查Worker配置中的WebSocket代理设置
-   - 确认没有防火墙或代理阻止WebSocket连接
+## 四、配置 systemd
 
-5. **GitHub部署失败**：
-   - 检查API令牌是否有效且权限足够
-   - 确保账户ID正确（在Cloudflare控制台左下角查看）
-   - 检查Worker名称格式是否符合规则（小写字母、数字、破折号）
+项目已提供示例文件：
 
-### 查看日志
+```text
+deploy/emby-proxy.service
+```
 
-1. **在线查看**：
-   - 登录 Cloudflare 控制台
-   - 进入Worker详情页
-   - 点击 "Logs"（日志）标签查看实时日志
+把它放到：
 
-2. **本地查看**（需要安装 Wrangler CLI）：
-   ```bash
-   wrangler tail --format pretty
-   ```
+```bash
+/etc/systemd/system/emby-proxy.service
+```
 
-## 更新日志
+然后按你的实际路径修改：
 
-- **版本 2.5**：集成D1数据库统计功能，优化重定向处理，集成前端页面
-- **版本 2.0**：优化性能，修复重定向问题
-- **版本 1.0**：初始版本，基础反向代理功能
+- `WorkingDirectory`
+- `EnvironmentFile`
+- `ExecStart`
+- `User`
+- `Group`
 
----
+启用服务：
 
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now emby-proxy
+sudo systemctl status emby-proxy
+```
 
-**声明**：本工具仅用于学习和研究目的，请勿用于非法用途。使用本工具产生的一切后果由使用者自行承担。
+查看日志：
+
+```bash
+sudo journalctl -u emby-proxy -f
+```
+
+## 五、配置 nginx
+
+项目提供示例文件：
+
+```text
+deploy/nginx.conf
+```
+
+关键点：
+
+- `proxy_http_version 1.1`
+- 透传 `Upgrade` 和 `Connection`
+- 透传 `Host`、`X-Forwarded-*`
+- 关闭缓冲 `proxy_buffering off`
+
+部署步骤：
+
+1. 按你的域名修改 `server_name`
+2. 把 `proxy_pass` 指向 Node 服务端口
+3. 测试配置：`sudo nginx -t`
+4. 重载：`sudo systemctl reload nginx`
+
+如果你还没有 HTTPS，可以再配合 `certbot` 签发证书。
+
+## 六、配置 Caddy
+
+项目提供示例文件：
+
+```text
+deploy/Caddyfile
+```
+
+Caddy 会自动处理 HTTPS。你只需要：
+
+1. 改掉域名 `your.domain.example`
+2. 确认反代目标是 `127.0.0.1:3000`
+3. 重载配置：`sudo systemctl reload caddy`
+
+## 七、验证
+
+### 1. 健康检查
+
+```bash
+curl http://127.0.0.1:3000/health
+```
+
+### 2. 首页
+
+```bash
+curl http://127.0.0.1:3000/
+```
+
+### 3. 统计接口
+
+```bash
+curl http://127.0.0.1:3000/stats
+```
+
+### 4. 代理访问示例
+
+```text
+https://你的域名/http://emby.example.com:8096
+https://你的域名/https://emby.example.com
+```
+
+## 八、统计数据说明
+
+统计数据默认写入：
+
+```text
+./data/stats.json
+```
+
+会统计两类请求：
+
+- `/Sessions/Playing`
+- `/PlaybackInfo`
+
+这是单机本地持久化方案，不需要额外数据库。
+
+## 九、兼容原项目规则
+
+本版本保留了以下行为：
+
+- 目标地址仍从请求路径解析
+- 保留手动重定向白名单
+- 支持 WebSocket
+- 支持原有日本节点域名改写逻辑
+
+与原 Cloudflare Worker 版本相比，主要变化是：
+
+- 运行时改为 Node.js
+- D1 改为本地文件存储
+- 部署方式改为 `systemd + nginx` 或 `systemd + Caddy`
+
+## 十、常见问题
+
+### 1. 为什么 `npm install` 很快结束？
+
+因为当前版本没有额外第三方依赖，Node.js 标准库就可以运行。
+
+### 2. 为什么统计没有数据？
+
+只有命中 `/Sessions/Playing` 和 `/PlaybackInfo` 这两类请求时才会累计。
+
+### 3. 如果我还想放在 Cloudflare 后面可以吗？
+
+可以。本项目仍会在启用 `TRUST_PROXY_HEADERS=true` 时读取部分 `CF-*` 请求头，以兼容原来的日本节点规则。
+
+### 4. 能不能多机部署共用统计？
+
+当前默认方案不适合多机共享统计。如果后续你需要，我可以继续把统计层改成 SQLite 或 MySQL。

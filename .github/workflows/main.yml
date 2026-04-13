@@ -1,4 +1,4 @@
-name: 部署到Workers
+name: Node.js Check
 
 on:
   push:
@@ -6,14 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy worker.js --name ${{ secrets.CLOUDFLARE_WORKER_NAME }} --compatibility-date 2026-03-01
+          node-version: '20'
+
+      - name: Check server entry
+        run: node --check server.js
