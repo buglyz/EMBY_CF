@@ -775,7 +775,7 @@ INSTALLED_PROXY_CONFIG=""
 [ -f "$APP_DIR/server.js" ] || die "未在 $APP_DIR 找到 server.js，请确认脚本位于仓库的 deploy 目录中。"
 
 if [ -f "$ENV_FILE" ]; then
-  prompt_yes_no OVERWRITE_ENV "如果存在 .env，是否覆盖现有配置" "no"
+  prompt_yes_no OVERWRITE_ENV "如果存在 .env，是否覆盖现有配置" "yes"
   if [ "$OVERWRITE_ENV" = "false" ]; then
     load_existing_env_file
   fi
