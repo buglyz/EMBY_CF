@@ -680,6 +680,12 @@ validate_proxy_options() {
     die "启用 HTTPS 时必须提供域名。"
   fi
 
+  case "$PORT" in
+    80|443)
+      die "选择 nginx 或 caddy 时，应用监听端口不能使用 $PORT。请把 .env 中的 PORT 改为 3000 等内部端口，或重新安装时选择覆盖 .env。"
+      ;;
+  esac
+
   if [ "$PROXY_CHOICE" = "nginx" ] && [ "$ENABLE_HTTPS" = "true" ]; then
     if [ "$NGINX_USE_CERTBOT" = "true" ]; then
       [ -n "$ACME_EMAIL" ] || die "使用 certbot 自动申请证书时必须提供邮箱。"
