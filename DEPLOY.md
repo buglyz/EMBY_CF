@@ -48,11 +48,13 @@ sudo sh deploy/install.sh
 脚本会自动完成：
 
 1. 检查并安装 Node.js 20+
-2. 交互式询问域名、监听地址和端口
+2. 交互式询问域名、监听地址、端口、反向代理类型和 HTTPS
 3. 安装项目运行依赖
 4. 创建默认 `.env`
 5. 生成 `systemd` 服务
-6. 开机自启并立即启动服务
+6. 按你的选择安装 `nginx` 或 `Caddy`
+7. 自动写入并启用对应站点配置
+8. 开机自启并立即启动服务
 
 默认行为：
 
@@ -66,11 +68,19 @@ sudo sh deploy/install.sh
 - 对外访问域名
 - 服务监听地址
 - 服务监听端口
+- 反向代理类型：`none` / `nginx` / `caddy`
+- 是否启用 HTTPS
+
+代理说明：
+
+- `none`：只部署 Node.js 服务，不安装反向代理
+- `caddy`：会自动安装 Caddy，并可选自动 HTTPS
+- `nginx`：会自动安装 nginx；如果启用 HTTPS，可选择 `certbot` 自动申请，或使用现有证书文件
 
 如果你想跳过交互，直接通过环境变量指定，也可以这样执行：
 
 ```bash
-sudo APP_DOMAIN=media.example.com PORT=3100 SERVICE_NAME=my-emby-proxy RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
+sudo APP_DOMAIN=media.example.com PROXY_CHOICE=caddy ENABLE_HTTPS=true PORT=3100 SERVICE_NAME=my-emby-proxy RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
 ```
 
 支持的环境变量：
@@ -85,6 +95,12 @@ sudo APP_DOMAIN=media.example.com PORT=3100 SERVICE_NAME=my-emby-proxy RUN_USER=
 - `TIME_ZONE`
 - `REQUEST_TIMEOUT_MS`
 - `TRUST_PROXY_HEADERS`
+- `PROXY_CHOICE`
+- `ENABLE_HTTPS`
+- `NGINX_USE_CERTBOT`
+- `ACME_EMAIL`
+- `SSL_CERT_PATH`
+- `SSL_KEY_PATH`
 - `STATS_FILE`
 - `MANUAL_REDIRECT_DOMAINS`
 - `DOMAIN_PROXY_RULES`
@@ -157,14 +173,17 @@ deploy/nginx.conf
 - 透传 `Host`、`X-Forwarded-*`
 - 关闭缓冲 `proxy_buffering off`
 
-部署步骤：
+如果安装脚本选择了 `nginx`，会自动：
 
-1. 按你的域名修改 `server_name`
-2. 把 `proxy_pass` 指向 Node 服务端口
-3. 测试配置：`sudo nginx -t`
-4. 重载：`sudo systemctl reload nginx`
+1. 安装 `nginx`
+2. 写入 `/etc/nginx/conf.d/<service>.conf`
+3. 执行 `nginx -t`
+4. 启动并设置开机自启
 
-如果你还没有 HTTPS，可以再配合 `certbot` 签发证书。
+如果启用了 HTTPS：
+
+1. 可以让脚本使用 `certbot` 自动申请证书
+2. 也可以输入你已有的证书和私钥路径
 
 ## 六、配置 Caddy
 
@@ -174,11 +193,14 @@ deploy/nginx.conf
 deploy/Caddyfile
 ```
 
-Caddy 会自动处理 HTTPS。你只需要：
+如果安装脚本选择了 `Caddy`，会自动：
 
-1. 改掉域名 `your.domain.example`
-2. 确认反代目标是 `127.0.0.1:3000`
-3. 重载配置：`sudo systemctl reload caddy`
+1. 安装 `Caddy`
+2. 创建 `/etc/caddy/sites/<service>.caddy`
+3. 把该目录 import 到 `/etc/caddy/Caddyfile`
+4. 校验配置并启动服务
+
+如果启用了 HTTPS，Caddy 会基于你填写的域名自动申请并续期证书。
 
 ## 七、验证
 

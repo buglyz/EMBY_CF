@@ -28,10 +28,12 @@ sudo sh deploy/install.sh
 脚本会自动完成：
 
 - 检查并安装 Node.js 20+
-- 交互式询问域名、监听地址和端口
+- 交互式询问域名、监听地址、端口、反向代理类型和 HTTPS
 - 生成 `.env`
 - 安装运行依赖
 - 注册 `systemd` 服务
+- 按选择自动安装 `nginx` 或 `Caddy`
+- 自动写入并启用对应反向代理配置
 - 设置开机自启并立即启动
 
 默认服务名为 `emby-server-proxy`，默认监听 `0.0.0.0:3000`。
@@ -41,11 +43,19 @@ sudo sh deploy/install.sh
 - 对外访问域名
 - 服务监听地址
 - 服务监听端口
+- 反向代理类型：`none` / `nginx` / `caddy`
+- 是否启用 HTTPS
+
+说明：
+
+- 选 `caddy` 并启用 HTTPS 时，会使用 Caddy 自动签发证书
+- 选 `nginx` 并启用 HTTPS 时，可以选择 `certbot` 自动申请证书，或使用你已有的证书文件
+- 选 `none` 时只安装 Node.js 服务，不安装反向代理
 
 如果你不想交互输入，也可以直接用环境变量覆盖，例如：
 
 ```bash
-sudo APP_DOMAIN=media.example.com PORT=3100 RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
+sudo APP_DOMAIN=media.example.com PROXY_CHOICE=caddy ENABLE_HTTPS=true PORT=3100 RUN_USER=www-data RUN_GROUP=www-data sh deploy/install.sh
 ```
 
 ### 3. 手动启动服务
@@ -79,6 +89,12 @@ https://你的服务域名/https://emby.example.com
 - `STATS_FILE`：统计文件保存路径，默认 `./data/stats.json`
 - `REQUEST_TIMEOUT_MS`：单次上游请求超时，默认 `300000`
 - `TRUST_PROXY_HEADERS`：是否信任 `X-Forwarded-*` 和 `CF-*` 头，默认 `true`
+- `PROXY_CHOICE`：反向代理类型，可选 `none`、`nginx`、`caddy`
+- `ENABLE_HTTPS`：是否启用 HTTPS，可选 `true` 或 `false`
+- `NGINX_USE_CERTBOT`：`nginx` 模式下是否使用 certbot 自动申请证书
+- `ACME_EMAIL`：自动申请 HTTPS 证书时使用的邮箱
+- `SSL_CERT_PATH`：`nginx` 手动证书模式下的证书路径
+- `SSL_KEY_PATH`：`nginx` 手动证书模式下的私钥路径
 - `MANUAL_REDIRECT_DOMAINS`：覆盖内置直连白名单，逗号分隔
 - `DOMAIN_PROXY_RULES`：当请求来自指定 Cloudflare 日本节点时改写上游域名，格式为 `后缀=主机[:端口]`
 - `JP_COLOS`：用于 `DOMAIN_PROXY_RULES` 的节点代码，默认 `NRT,KIX,FUK,OKA`
