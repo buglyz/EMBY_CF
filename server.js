@@ -367,6 +367,7 @@ function recordStatsIfNeeded(pathname) {
 
 function buildUpstreamRequestHeaders(req, upstreamUrl) {
   const headers = new Headers();
+  const upstreamProto = upstreamUrl.protocol.replace(/:$/, '');
 
   for (const [name, rawValue] of Object.entries(req.headers)) {
     if (rawValue == null) {
@@ -406,16 +407,17 @@ function buildUpstreamRequestHeaders(req, upstreamUrl) {
 
   const originalHost = req.headers.host;
   if (originalHost) {
-    headers.set('X-Forwarded-Host', originalHost);
+    headers.set('X-Forwarded-Host', upstreamUrl.host);
   }
 
-  headers.set('X-Forwarded-Proto', getForwardedProto(req));
+  headers.set('X-Forwarded-Proto', upstreamProto);
 
   return headers;
 }
 
 function buildWebSocketRequestHeaders(req, upstreamUrl, requestOrigin) {
   const filteredHeaders = [];
+  const upstreamProto = upstreamUrl.protocol.replace(/:$/, '');
 
   for (let index = 0; index < req.rawHeaders.length; index += 2) {
     const name = req.rawHeaders[index];
@@ -444,9 +446,9 @@ function buildWebSocketRequestHeaders(req, upstreamUrl, requestOrigin) {
     filteredHeaders.push(['X-Real-IP', clientIp]);
   }
 
-  filteredHeaders.push(['X-Forwarded-Proto', getForwardedProto(req)]);
+  filteredHeaders.push(['X-Forwarded-Proto', upstreamProto]);
 
-  const forwardedHost = req.headers.host || new URL(requestOrigin).host;
+  const forwardedHost = upstreamUrl.host;
   filteredHeaders.push(['X-Forwarded-Host', forwardedHost]);
 
   return filteredHeaders;
